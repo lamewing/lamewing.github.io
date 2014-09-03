@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>lamewing的Blog by lamewing</title>
+
+    <link rel="stylesheet" href="/stylesheets/styles.css">
+    <link rel="stylesheet" href="/stylesheets/pygment_trac.css">
+    <script src="/javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header class="without-description">
+        <h1>lamewing的Blog</h1>
+        <p></p>
+        <p class="view"><a href="https://github.com/lamewing">View the Project on GitHub <small>lamewing</small></a></p>
+        <ul>
+          <li class="single"><a href="https://github.com/lamewing/lamewing.github.io">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+		<h2>iOS中的CoreData并发</h2>
+<p>（本文译自apple官方文档”Core Data Programming Guide”中的<a href="https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/CoreData/Articles/cdConcurrency.html#//apple_ref/doc/uid/TP40003385-SW1">Concurrency with Core Data</a>一章）</p>
+
+<p><code>
+重要：自从写出这篇文档以来，关于Core Data并发的最佳实践已经有了很大的改变；请注意这一章并不代表当前的建议。
+</code></p>
+<p>在一些情况中，用Core Data在后台线程或队列上进行操作是有利的，尤其是如果你想要确保当Core Data在进行长时间运行的任务时，你的应用的用户界面仍然可以响应的话。</p>
+
+<p><code>
+注：关于并发，你可以使用线程、串行操作队列或dispatch队列。为了简明起见，这篇文章自始至终使用“线程”一词。
+</code></p>
+<p>如果选择使用Core Data并发，还需要考虑应用环境。对大部分来说，AppKit和UIKit不是线程安全的；尤其是在OS X Cocoa上，绑定和控制器不是线程安全的——如果你将要使用这些技术的话，多线程编程可能会比较复杂。</p>
+<p><br /></p>
+<h3>使用线程封闭（Thread Confinement）来支持并发</h3>
+<p>推荐用于Core Data并发的模式是线程封闭：每个线程必须具有它自己的完全私有的托管对象上下文。</p>
+<p>这种模式的采用可以通过两种可能的途径：</p>
+
+<ol>
+  <li>为每个线程创建一个单独的托管对象上下文，并且共享一个持久化存储协调器。这是所建议的典型的方法。<br /></li>
+  <li>为每个线程创建一个单独的托管对象上下文和持久化存储协调器。这种方法可供实现更大的并发性，代价是更大的复杂度（尤其是如果你需要在不同的上下文之间传递所发生的改变的话）和更高的内存使用。<br /></li>
+</ol>
+
+<p>你必须在线程上创建托管上下文，并在该线程上使用该上下文。如果使用NSOperation，注意它的init方法是在与调用者相同的线程上被调用的。因此不要在队列的init方法中创建用于该队列的托管对象上下文，否则这个上下文会与调用者的队列关联。相反，应该在main（对串行队列来说）或start（对并发队列来说）中创建上下文。</p>
+<p>使用线程封闭，不要在线程之间传递托管对象或托管对象上下文。要在上下文之间越过线程边界“传递”托管对象，有以下两种选择：</p>
+<ul>
+  <li>传递它的对象ID（objectID），并且在接收一方的托管对象上下文中使用ObjectwithID:或existingObjectWithID:Error:。对应的托管对象必须已经保存，不能将一个新添加的托管对象的ID传递至另一个上下文。</li>
+  <li>在接收一方的上下文上执行一次fetch。</li>
+</ul>
+<p>这会在接收一方的上下文中创建该托管对象的一个局部版本。</p>
+<p>使用NSFetchRequest所提供的方法，可以使得在线程之间操作数据更加简单有效。例如，可以构建一个fetch请求，返回对象ID，同时包括行数据（并且更新行缓存）——如果你只是要将对象ID从后台线程传递到另一个线程的话，这会比较有用。</p>
+<p>在典型情况下，并不需要对托管对象或托管对象上下文使用锁。然而，如果你使用由多个线程共享的单个持久化存储协调器的话，并且想要对它进行操作（例如，如果想要添加一个新的存储），或者如果你想要像一个虚拟单一事物那样在一个上下文中将很多操作聚合在一起的话，应该对持久化存储协调器上锁。</p>
+<h3>使用通知跟踪在其他线程中的改变</h3>
+<p>在一个上下文中对一个托管对象所作出的改变不会传送到不同上下文中的对应的托管对象，除非重新fetch或重新fault该对象。如果需要在一个线程中跟踪在另一个线程中对托管对象作出的改变，可以采用两种方法，这两种方法都涉及到通知。为了说明，想象有两个线程，“A”和“B”，然后假定你想要把改变从B传送至A。</p>
+<p>典型情况下，在线程A上注册了托管对象上下文保存通知，NSManagedObjectContextDidSaveNotification。当接收到该通知时，它的用户信息字典包含了在线程B上所添加、删除和更新的托管对象的数组。因为这些托管对象与另一个线程相关联，不要直接去访问他们。相反，将该通知作为参数传递给mergeChangesFromContextDidSaveNotification:（发送给线程A上的上下文）。使用这个方法，上下文能够安全地合并这些改变。</p>
+<p>如果需要粒度更细的控制，可以使用托管对象上下文<i>改变</i>通知，NSManagedObjectContextObjectsDidChangeNotification——这个通知的用户信息字典也包含所添加、删除和更新的托管对象的数组。在这种情形下，在线程B上注册通知。当接收到该通知时，用户信息字典中的那些托管对象与同一线程相关联，所以可以访问它们的对象ID。通过向线程A上的一个对象发送适当的消息，将对象ID传递给线程A。一旦接收到，就可以在线程A上重新fetch对应的托管对象。</p>
+<p>注意，<i>改变</i>通知是在NSManagedObjectContext的processPendingChanges方法中发送的。主线程被绑定在应用的事件循环上，使得在主线程所拥有的上下文上的每次用户事件之后，都会自动调用processPendingChanges。但是对后台线程来说不是这样——该方法何时调用取决于平台和发布版本，所以不要依赖特定的时间选择。如果第二上下文不在主线程上，应该在合适的时机手动调用processPendingChanges。（应该为后台线程建立工作“循环”——例如，在每个动作簇之后。）</p>
+<p><br />
+<br /></p>
+<p>待续...</p>
+
+      </section>
+    </div>
+    <footer>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>
