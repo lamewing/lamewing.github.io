@@ -7,8 +7,8 @@ title: lamewing的Blog
     {% for post in site.posts %}
     <hr><h2><a href="{{site.baseurl}}{{post.url}}"> {{ post.title }} <span class="octicon octicon-link"></span> </a></h2>
         {{ post.date | date: "%F" }} <br>
-        {{ post.category }} <br>
-        {{ post.excerpt }} 
+        <!{{ post.category }} <br>
+        {{ post.excerpt }} <br><br>
     {% endfor %}
 </ul>
 

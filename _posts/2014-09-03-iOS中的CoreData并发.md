@@ -1,22 +1,24 @@
 ---
 excerpt: "必须在线程上创建托管上下文，并在该线程上使用该上下文。如果使用NSOperation，注意它的init方法是在与调用者相同的线程上被调用的。因此不要在队列的init方法中创建用于该队列的托管对象上下文，否则这个上下文会与调用者的队列关联。相反，应该在main（对串行队列来说）或start（对并发队列来说）中创建上下文。"
 layout: post
-title: iOS中的CoreData并发（1）
+title: （译）iOS中的CoreData并发（1）
 ---
-<h2>{{page.title}}</h2>
-<p>今天遇到了Core Data在多线程下使用的问题，然后就找来了apple的官方文档看了看。虽然其中指出了Core Data的并发实践已经有了新的内容而文档没有及时更新，但是应该还是有参考价值的，所以就翻译了一下，顺便学习学习。</p>
+##{{page.title}}
+今天遇到了Core Data在多线程下使用的问题，然后就找来了apple的官方文档看了看。虽然其中指出了Core Data的并发实践已经有了新的内容而文档没有及时更新，但是应该还是有参考价值的，所以就翻译了一下，顺便学习学习。
+
 （本文译自apple官方文档”Core Data Programming Guide”中的[Concurrency with Core Data](https://developer.apple.com/library/ios/documentation/Cocoa/Conceptual/CoreData/Articles/cdConcurrency.html#//apple_ref/doc/uid/TP40003385-SW1)一章）
 
-```
+>
 重要：自从写出这篇文档以来，关于Core Data并发的最佳实践已经有了很大的改变；请注意这一章并不代表当前的建议。
-```
-<p>在一些情况中，用Core Data在后台线程或队列上进行操作是有利的，尤其是如果你想要确保当Core Data在进行长时间运行的任务时，你的应用的用户界面仍然可以响应的话。</p>  
+>
 
-```
+在一些情况中，用Core Data在后台线程或队列上进行操作是有利的，尤其是如果你想要确保当Core Data在进行长时间运行的任务时，你的应用的用户界面仍然可以响应的话。
+
+>
 注：关于并发，你可以使用线程、串行操作队列或dispatch队列。为了简明起见，这篇文章自始至终使用“线程”一词。
-```
+>
+
 <p>如果选择使用Core Data并发，还需要考虑应用环境。对大部分来说，AppKit和UIKit不是线程安全的；尤其是在OS X上，Cocoa绑定和控制器不是线程安全的——如果你将要使用这些技术的话，多线程编程可能会比较复杂。</p>
-<br />
 <h3>使用线程封闭（Thread Confinement）来支持并发</h3>
 <p>推荐用于Core Data并发的模式是线程封闭：每个线程必须具有它自己的完全私有的托管对象上下文。</p>
 <p>这种模式的采用可以通过两种可能的途径：</p>
