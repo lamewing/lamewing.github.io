@@ -27,10 +27,15 @@
       <section>
 		<ul class="post-list">
     
-    <hr><h2><a href="/2014/09/04/iOS%E4%B8%AD%E7%9A%84CoreData%E5%B9%B6%E5%8F%91.html"> iOS中的CoreData并发 <span class="octicon octicon-link"></span> </a></h2>
-        2014-09-04 <br>
+    <hr><h2><a href="/2014/09/03/iOS%E4%B8%AD%E7%9A%84CoreData%E5%B9%B6%E5%8F%91.html"> iOS中的CoreData并发（1） <span class="octicon octicon-link"></span> </a></h2>
+        2014-09-03 <br>
          <br>
-        必须在线程上创建托管上下文，并在该线程上使用该上下文。如果使用NSOperation，注意它的init方法是在与调用者相同的线程上被调用的。因此不要在队列的init方法中创建用于该队列的托管对象上下文，否则这个上下文会与调用者的队列关联。相反，应该在main（对穿行队列来说）或start（对并发队列来说）中创建上下文。 
+        必须在线程上创建托管上下文，并在该线程上使用该上下文。如果使用NSOperation，注意它的init方法是在与调用者相同的线程上被调用的。因此不要在队列的init方法中创建用于该队列的托管对象上下文，否则这个上下文会与调用者的队列关联。相反，应该在main（对串行队列来说）或start（对并发队列来说）中创建上下文。 
+    
+    <hr><h2><a href="/2014/09/03/CoreData%E5%B9%B6%E5%8F%912.html"> iOS中的CoreData并发（2） <span class="octicon octicon-link"></span> </a></h2>
+        2014-09-03 <br>
+         <br>
+        executeFetchRequest:error:方法会内在地根据硬件和工作负载适当地调整它的行为。如果必须的话，Core Data会创建额外的私有线程，用来优化fetch性能。通过手动创建后台线程不会改善绝对的fetch速率。然而，在后台线程或队列中进行fetch，并以此来防止你的应用的用户界面被阻塞，这仍然是合适的。这意味着，如果一次fetch很复杂或返回大量数据，你可以将控制还给用户，并在它们到达时显示结果。 
     
 </ul>
 
